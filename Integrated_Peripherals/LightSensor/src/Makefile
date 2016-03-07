@@ -1,2 +1,2 @@
-MODULE_NAME:=gpio_control
+MODULE_NAME:=LightSensor
 obj-m += $(MODULE_NAME).o

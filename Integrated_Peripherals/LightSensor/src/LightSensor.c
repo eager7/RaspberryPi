@@ -1,8 +1,8 @@
 /*************************************************************************
-	> File Name: gpio_control.c
+	> File Name: LightSensor.c
 	> Author: PCT
 	> Mail: 
-	> Created Time: 2015年11月25日 星期三 14时55分14秒
+	> Created Time: 2016年3月6日 14时55分14秒
  ************************************************************************/
 /****************************************************************************/
 /***        Include files                                                 ***/
@@ -22,11 +22,11 @@
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
-#define GPIO_MAJOR 0	//major version
-#define GPIO_MINOR 0
+#define SENSOR_MAJOR 0	//major version
+#define SENSOR_MINOR 0
 
-#define GPIO_NUM 1
-#define GPIO_NAME "gpio_control"
+#define SENSOR_NUM 1
+#define SENSOR_NAME "light_sensor"
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
@@ -34,11 +34,11 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-static int gpio_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos);
-static int gpio_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos);
-inline static unsigned gpio_poll(struct file *filp, poll_table *pwait);
-static int gpio_open(struct inode *inode, struct file *filp);
-long gpio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+static int sensor_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos);
+static int sensor_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos);
+inline static unsigned sensor_poll(struct file *filp, poll_table *pwait);
+static int sensor_open(struct inode *inode, struct file *filp);
+long sensor_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 int mem_release(struct inode *inode, struct file *filp);
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -46,21 +46,21 @@ int mem_release(struct inode *inode, struct file *filp);
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-static struct file_operations gpio_optns =
+static struct file_operations driver_optns =
 {
 	.owner 			= THIS_MODULE,	//the module's owner
 	.llseek			= NULL,			//set the pointer of file location
-	.read  			= gpio_read,	//read data
+	.read  			= sensor_read,	//read data
 	.aio_read		= NULL,			//asynchronous read
-	.write 			= gpio_write,	//write data
+	.write 			= sensor_write,	//write data
 	.aio_write		= NULL,			//asynchronous write
 	.readdir		= NULL,			//read dir, only used for filesystem
-	.poll  			= gpio_poll,	//poll to judge the device whether it can non blocking read & write
+	.poll  			= sensor_poll,	//poll to judge the device whether it can non blocking read & write
 	//.ioctl 			= NULL,			//executive the cmd, int the later version of linux, used fun unlocked_ioctl replace this fun
-	.unlocked_ioctl = gpio_ioctl,	//if system doens't use BLK filesystem ,the use this fun indeeded iotcl
+	.unlocked_ioctl = sensor_ioctl,	//if system doens't use BLK filesystem ,the use this fun indeeded iotcl
 	.compat_ioctl 	= NULL,			//the 32bit program will use this fun replace the ioctl in the 64bit platform
 	.mmap			= NULL,			//memory mapping
-	.open  			= gpio_open,	//open device
+	.open  			= sensor_open,	//open device
 	.flush			= NULL,			//flush device
 	.release		= mem_release,			//close the device
 	//.synch			= NULL,			//refresh the data
@@ -68,8 +68,8 @@ static struct file_operations gpio_optns =
 	.fasync			= NULL,			//notifacation the device's Flag changed
 };
 
-static int gpio_major = GPIO_MAJOR;
-static int gpio_minor = GPIO_MINOR;
+static int sensor_major = SENSOR_MAJOR;
+static int sensor_minor = SENSOR_MINOR;
 struct cdev cdev;
 /****************************************************************************/
 /***        Local    Functions                                            ***/
@@ -78,58 +78,58 @@ struct cdev cdev;
 
 static int __init gpio_init(void)
 {
-	dev_t dev_no = MKDEV(gpio_major, gpio_minor);
+	dev_t dev_no = MKDEV(sensor_major, sensor_minor);
 	int result = 0;
-    printk(KERN_DEBUG "Hello Kernel Init!\n");
+    printk(KERN_DEBUG "Hello %s Kernel Init!\n", SENSOR_NAME);
 	
 	/*region device version*/
-	if(gpio_major){
+	if(sensor_major){
 		printk(KERN_DEBUG "static region device\n");
-		result = register_chrdev_region(dev_no, GPIO_NUM, GPIO_NAME);//static region
+		result = register_chrdev_region(dev_no, SENSOR_NUM, SENSOR_NAME);//static region
 	}else{
 		printk(KERN_DEBUG "alloc region device\n");
-		result = alloc_chrdev_region(&dev_no, gpio_minor, GPIO_NUM, GPIO_NAME);//alloc region
-		gpio_major = MAJOR(dev_no);//get major
+		result = alloc_chrdev_region(&dev_no, sensor_minor, SENSOR_NUM, SENSOR_NAME);//alloc region
+		sensor_major = MAJOR(dev_no);//get major
 	}
 	if(result < 0){
 		printk(KERN_ERR "Region Device Error, %d\n", result);
 		return result;
 	}
 	
-	cdev_init(&cdev, &gpio_optns);//init cdev
+	cdev_init(&cdev, &sensor_optns);//init cdev
 	cdev.owner = THIS_MODULE;
-	cdev.ops = &gpio_optns;
+	cdev.ops = &sensor_optns;
 	
 	printk(KERN_DEBUG "cdev_add\n");
-	cdev_add(&cdev, MKDEV(gpio_major, gpio_minor), GPIO_NUM);//regedit the device
+	cdev_add(&cdev, MKDEV(sensor_major, sensor_minor), SENSOR_NUM);//regedit the device
 	
     return 0;
 }
 
-static void gpio_exit(void)
+static void sensor_exit(void)
 {
-    printk(KERN_ALERT "unregion the gpio device\n");
+    printk(KERN_ALERT "unregion the sensor device\n");
 	cdev_del(&cdev);//delete the device
-	unregister_chrdev_region(MKDEV(gpio_major, gpio_minor), GPIO_NUM);//unregion device
+	unregister_chrdev_region(MKDEV(sensor_major, sensor_minor), SENSOR_NUM);//unregion device
 }
 
-static int gpio_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
+static int sensor_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
 {
-	printk(KERN_DEBUG "gpio_write\n");
+	printk(KERN_DEBUG "sensor_write\n");
 	
 	return 0;
 }
 
-static int gpio_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
+static int sensor_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
 {
-	printk(KERN_DEBUG "gpio_read\n");
+	printk(KERN_DEBUG "sensor_read\n");
 	return 0;
 }
 
-static int gpio_open(struct inode *inode, struct file *filp)
+static int sensor_open(struct inode *inode, struct file *filp)
 {
 	struct scull_dev *dev = NULL;
-	printk(KERN_DEBUG "gpio_open\n");
+	printk(KERN_DEBUG "sensor_open\n");
 	/*
 	dev = container_of(inode->i_cdev, struct scull_dev, dev);
 	filp->private_data = dev;
@@ -141,16 +141,16 @@ static int gpio_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-inline static unsigned gpio_poll(struct file *filp, poll_table *pwait)
+inline static unsigned sensor_poll(struct file *filp, poll_table *pwait)
 {
 	printk(KERN_DEBUG "gpio_poll\n");
 	
 	return 0;
 }
 
-long gpio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+long sensor_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	printk(KERN_DEBUG "gpio_ioctl\n");
+	printk(KERN_DEBUG "sensor_ioctl\n");
 	switch(cmd){
 		case 1:{
 			printk(KERN_DEBUG "gpio_ioctl 1\n");
@@ -175,9 +175,9 @@ int mem_release(struct inode *inode, struct file *filp)
 /****************************************************************************/
 /***        Kernel    Module                                              ***/
 /****************************************************************************/
-module_init(gpio_init);
-module_exit(gpio_exit);
+module_init(sensor_init);
+module_exit(sensor_exit);
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Pan Chang Tao");
-MODULE_DESCRIPTION("The IO Control Driver");
-MODULE_ALIAS("A IO Module");
+MODULE_DESCRIPTION("The LightSensor Driver");
+MODULE_ALIAS("A Sensor Driver Module");
