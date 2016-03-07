@@ -46,7 +46,7 @@ int mem_release(struct inode *inode, struct file *filp);
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-static struct file_operations driver_optns =
+static struct file_operations sensor_optns =
 {
 	.owner 			= THIS_MODULE,	//the module's owner
 	.llseek			= NULL,			//set the pointer of file location
@@ -76,7 +76,7 @@ struct cdev cdev;
 /****************************************************************************/
 
 
-static int __init gpio_init(void)
+static int __init sensor_init(void)
 {
 	dev_t dev_no = MKDEV(sensor_major, sensor_minor);
 	int result = 0;
